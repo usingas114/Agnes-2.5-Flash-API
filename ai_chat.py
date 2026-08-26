@@ -3,7 +3,7 @@
 AI 创作工作台 —— Agnes 全家桶
 ================================
 功能：
-  1. 对话：连接 agnes-2.5-flash，支持加载本地 .md 文件作为系统提示词，
+  1. 对话：连接 agnes-2.5-flash，
      支持上传本地照片让 AI 看图回答（多模态理解），流式输出。
   2. 生图：连接 agnes-image-2.1-flash，支持文生图 / 图生图（可传本地照片）。
   3. 生视频：连接 agnes-video-v2.0，支持文生视频 / 图生视频，完成后自动保存并播放。
@@ -25,6 +25,7 @@ import json
 import math
 import os
 import queue
+import re
 import sys
 import threading
 import time
@@ -576,6 +577,27 @@ class App:
         tab = ttk.Frame(self.notebook)
         self.notebook.add(tab, text="  对话  ")
 
+        # 先装配底部固定区域，最后装配可伸缩的对话区，
+        # 否则对话区会先占满窗口，把输入区挤出可视范围
+        attach_row = ttk.Frame(tab)
+        attach_row.pack(side="bottom", fill="x", padx=6)
+        self.attach_label = ttk.Label(attach_row, text="", foreground="#777")
+        self.attach_label.pack(side="left")
+        ttk.Button(attach_row, text="移除照片", width=8,
+                   command=self.clear_attachment).pack(side="right")
+        ttk.Button(attach_row, text="上传照片", width=8,
+                   command=self.attach_photo).pack(side="right", padx=4)
+
+        input_row = ttk.Frame(tab)
+        input_row.pack(side="bottom", fill="x", padx=6, pady=6)
+        self.chat_entry = tk.Text(input_row, height=3, wrap="word",
+                                  font=("Microsoft YaHei UI", 11))
+        self.chat_entry.pack(side="left", fill="both", expand=True)
+        self.chat_entry.bind("<Return>", self.on_chat_enter)
+        self.chat_send_btn = ttk.Button(input_row, text="发送", width=8,
+                                        command=self.send_chat)
+        self.chat_send_btn.pack(side="right", padx=(8, 0), fill="y")
+
         self.chat_text = tk.Text(tab, wrap="word", state="disabled",
                                  font=("Microsoft YaHei UI", 11), padx=12, pady=10,
                                  spacing1=4, spacing3=4)
@@ -586,25 +608,6 @@ class App:
         self.chat_text.tag_configure("body", foreground="#1f1f1f")
         self.chat_text.tag_configure("error", foreground="#c5221f")
         self.chat_text.pack(fill="both", expand=True, padx=6, pady=(6, 2))
-
-        attach_row = ttk.Frame(tab)
-        attach_row.pack(fill="x", padx=6)
-        self.attach_label = ttk.Label(attach_row, text="", foreground="#777")
-        self.attach_label.pack(side="left")
-        ttk.Button(attach_row, text="移除照片", width=8,
-                   command=self.clear_attachment).pack(side="right")
-        ttk.Button(attach_row, text="上传照片", width=8,
-                   command=self.attach_photo).pack(side="right", padx=4)
-
-        input_row = ttk.Frame(tab)
-        input_row.pack(fill="x", padx=6, pady=6)
-        self.chat_entry = tk.Text(input_row, height=3, wrap="word",
-                                  font=("Microsoft YaHei UI", 11))
-        self.chat_entry.pack(side="left", fill="both", expand=True)
-        self.chat_entry.bind("<Return>", self.on_chat_enter)
-        self.chat_send_btn = ttk.Button(input_row, text="发送", width=8,
-                                        command=self.send_chat)
-        self.chat_send_btn.pack(side="right", padx=(8, 0), fill="y")
 
         self.chat_append("已连接 " + CHAT_MODEL + "。可先加载 .md 系统提示词，"
                          "或上传照片后提问。\n", "assistant")
